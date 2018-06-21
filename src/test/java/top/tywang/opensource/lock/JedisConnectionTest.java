@@ -21,17 +21,39 @@ public class JedisConnectionTest {
 
     @Test
     public void testLockAndUnlock() throws InterruptedException {
-        log.info("user1: I will use lock1 2s, so lock1 has been locked now!");
-        redisLock.lock(lock1Key, UUID.randomUUID().toString());
-        Thread.sleep(2000);
-        log.info("user1: lock1 has been unlocked!");
-        redisLock.unlock(lock1Key);
-    }
+        Thread t1 = new Thread(() -> {
+            try {
+                log.info("user1: I try to get lock!");
+                redisLock.lock(lock1Key, UUID.randomUUID().toString());
+                log.info("user1: I am working now!");
+                Thread.sleep(1000);
+                log.info("user1: I am done");
+                redisLock.unlock(lock1Key);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+        t1.start();
 
-    @Test
-    public void should_release_lock_automatically_when_use_timeout_lock() throws InterruptedException {
-        log.info("user2: I will use lock1, so lock1 has been locked now!");
-        redisLock.lock(lock1Key, UUID.randomUUID().toString(), 3000);
-        log.info("user2: lock1 has been unlocked automatically!");
+        Thread.sleep(100); // sleep for A get lock
+
+        Thread t2 = new Thread(() -> {
+            try {
+                log.info("user2: I try to get lock!");
+                redisLock.lock(lock1Key, UUID.randomUUID().toString());
+                log.info("user2: I am working now!");
+                Thread.sleep(1000);
+                log.info("user2: I am done");
+                redisLock.unlock(lock1Key);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+        t2.start();
+
+        t1.join();
+        t2.join();
+
+
     }
 }

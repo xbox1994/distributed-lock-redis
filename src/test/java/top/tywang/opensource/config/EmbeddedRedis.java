@@ -18,8 +18,8 @@ public class EmbeddedRedis implements ApplicationRunner {
     }
 
     @Override
-    public void run(ApplicationArguments applicationArguments) throws Exception {
-        redisServer = RedisServer.builder().setting("bind 127.0.0.1").setting("requirepass test").build();
+    public void run(ApplicationArguments applicationArguments) {
+        redisServer = RedisServer.builder().port(63799).setting("bind 127.0.0.1").setting("requirepass test").build();
         redisServer.start();
     }
 }
