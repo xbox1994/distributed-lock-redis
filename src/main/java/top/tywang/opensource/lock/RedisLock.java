@@ -50,4 +50,11 @@ public class RedisLock {
         jedis.close();
     }
 
+    public boolean isLocked(String key){
+        Jedis jedis = jedisPool.getResource();
+        String result = jedis.get(LOCK_PREFIX + key);
+        jedis.close();
+        return result != null;
+    }
+
 }

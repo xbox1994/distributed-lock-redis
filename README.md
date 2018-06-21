@@ -43,7 +43,7 @@
 ## 实现方式
 存储模块使用Redis，连接池模块暂时使用JedisPool，锁的内部逻辑将从基本功能开始，逐步实现高级功能，下面就是各种功能实现的具体思路与代码了。
 
-## 加锁、解锁、超时释放
+### 加锁、解锁、超时释放
 NX是Redis提供的一个原子操作，如果指定key存在，那么NX失败，如果不存在会进行set操作并返回成功。我们可以利用这个来实现一个分布式的锁，主要思路就是，set成功表示获取锁，set失败表示获取失败，失败后需要重试。再加上EX参数可以让该key在超时之后自动删除。
 
 下面是一个阻塞锁的加锁操作，但会导致并发问题，如果超过超时时间但是业务还没执行完，那么其他进程就会执行业务代码，至于如何改进，下文会讲到，现在先简单来做：
@@ -74,7 +74,7 @@ public void unlock(String key) {
 }
 ```
 
-## 来用测试梭一把
+### 来用测试梭一把
 
 此时我们可以来写个测试来试试有没有达到我们想要的效果，上面的代码都写在src/main/java下的RedisLock里，下面的测试代码需要写在src/test/java里，因为单元测试只是测试代码的逻辑，无法测试真实连接Redis之后的表现，也没办法体验到**被锁住带来的紧张又刺激的快感**，所以本项目中主要以集成测试为主，如果你想试试带Mock的单元测试，可以看看[这篇文章](https://crossoverjie.top/2018/03/29/distributed-lock/distributed-lock-redis/)。
 
@@ -101,8 +101,28 @@ public class EmbeddedRedis implements ApplicationRunner {
 
 对于需要考虑并发的代码下的测试是比较难且比较难以达到检测代码质量的目的的，因为测试用例会用到多线程的环境，不一定能百分百通过且难以重现，但本项目的分布式锁是一个比较简单的并发场景，所以我会尽可能保证测试是有意义的。
 
-我第一个测试用例就是不使用超时时间这个参数的情况下，想让A拿到锁并执行业务，在A执行业务的过程中B也想拿到锁，但是B没有办法拿到所以会等待，直到A将锁释放，然后B开始执行业务。
+我第一个测试用例是想测试一下锁的互斥能力，能否在A拿到锁之后，B就无法立即拿到锁：
 
+```java
+@Test
+public void testLockWait() throws InterruptedException {
+    Thread t = new Thread(() -> {
+        try {
+            redisLock.lock(lock1Key, UUID.randomUUID().toString());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    });
+    t.start();
+    t.join();
+
+    long startTime = System.currentTimeMillis();
+    redisLock.lock(lock1Key, UUID.randomUUID().toString(), 3000);
+    assertThat(System.currentTimeMillis() - startTime).isBetween(2500L, 3500L);
+}
+```
+
+但这仅仅测试了加锁操作时候的互斥性，但是没有测试解锁是否会成功以及解锁之后原来等待锁的进程会继续进行，所以你可以参看一下testLockAndUnlock方法是如何测试的。不要觉得写测试很简单，**想清楚测试的各种情况，设计测试情景并实现**并不容易。然而以后写的测试不会单独拿出来讲，毕竟本文想关注的还是分布式锁的实现嘛。
 
 
 # 参考
