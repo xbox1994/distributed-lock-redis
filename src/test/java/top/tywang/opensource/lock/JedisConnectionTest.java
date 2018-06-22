@@ -24,16 +24,18 @@ public class JedisConnectionTest {
 
     private String lock1Key = "lock1";
 
+    private String lock1Value = UUID.randomUUID().toString();
+
     @Before
     public void resetRedisStatus() {
-        redisLock.unlock(lock1Key);
+        redisLock.flushAll();
     }
 
     @Test
     public void testLockWait() throws InterruptedException {
         Thread t = new Thread(() -> {
             try {
-                redisLock.lock(lock1Key, UUID.randomUUID().toString());
+                redisLock.lock(lock1Key, lock1Value);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -42,7 +44,7 @@ public class JedisConnectionTest {
         t.join();
 
         long startTime = System.currentTimeMillis();
-        redisLock.lock(lock1Key, UUID.randomUUID().toString(), 1000);
+        redisLock.lock(lock1Key, lock1Value, 1000);
         assertThat(System.currentTimeMillis() - startTime).isBetween(500L, 1500L);
     }
 
@@ -52,11 +54,11 @@ public class JedisConnectionTest {
 
         Thread t1 = new Thread(() -> {
             try {
-                redisLock.lock(lock1Key, UUID.randomUUID().toString());
+                redisLock.lock(lock1Key, lock1Value);
                 Assert.assertTrue(redisLock.isLocked(lock1Key));
                 Thread.sleep(1000);
                 t1Done[0] = true;
-                redisLock.unlock(lock1Key);
+                redisLock.unlock(lock1Key, lock1Value);
                 Assert.assertFalse(redisLock.isLocked(lock1Key));
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -64,15 +66,15 @@ public class JedisConnectionTest {
         });
         t1.start();
 
-        Thread.sleep(100); // sleep for A get lock
+        Thread.sleep(100); // wait t1 get lock1
 
         Thread t2 = new Thread(() -> {
             try {
                 Assert.assertFalse(t1Done[0]);
-                redisLock.lock(lock1Key, UUID.randomUUID().toString());
+                redisLock.lock(lock1Key, lock1Value);
                 Assert.assertTrue(t1Done[0]);
                 Thread.sleep(1000);
-                redisLock.unlock(lock1Key);
+                redisLock.unlock(lock1Key, lock1Value);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

@@ -64,13 +64,19 @@ public void lock(String key, String request, int timeout) throws InterruptedExce
 }
 ```
 
-然后添加一个解锁操作：
+然后添加一个解锁操作，最常见的解锁代码就是直接使用`jedis.del()`方法删除锁，这种不先判断锁的拥有者而直接解锁的方式，会导致任何客户端都可以随时进行解锁，即使这把锁不是它的。比如可能存在这样的情况：客户端A加锁，一段时间之后客户端A解锁，在执行jedis.del()之前，锁突然过期了，此时客户端B尝试加锁成功，然后客户端A再执行del()方法，则将客户端B的锁给解除了。
+
+所以我们需要一个具有原子性的方法来解锁，并且要同时判断这把锁是不是自己的。由于Lua脚本在Redis中执行是原子性的，所以可以写成下面这样：
 
 ```java
-public void unlock(String key) {
+public boolean unlock(String key, String value) {
     Jedis jedis = jedisPool.getResource();
-    jedis.del(LOCK_PREFIX + key);
+
+    String script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+    Object result = jedis.eval(script, Collections.singletonList(LOCK_PREFIX + key), Collections.singletonList(value));
+
     jedis.close();
+    return UNLOCK_MSG.equals(result);
 }
 ```
 
@@ -129,3 +135,4 @@ public void testLockWait() throws InterruptedException {
 https://www.jianshu.com/p/c2b4aa7a12f1  
 https://crossoverjie.top/2018/03/29/distributed-lock/distributed-lock-redis/  
 https://www.jianshu.com/p/de67ae50f919
+https://www.cnblogs.com/linjiqin/p/8003838.html
