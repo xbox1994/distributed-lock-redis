@@ -46,7 +46,7 @@
 ### 加锁、解锁、超时释放
 NX是Redis提供的一个原子操作，如果指定key存在，那么NX失败，如果不存在会进行set操作并返回成功。我们可以利用这个来实现一个分布式的锁，主要思路就是，set成功表示获取锁，set失败表示获取失败，失败后需要重试。再加上EX参数可以让该key在超时之后自动删除。
 
-下面是一个阻塞锁的加锁操作，但会导致并发问题，如果超过超时时间但是业务还没执行完，那么其他进程就会执行业务代码，至于如何改进，下文会讲到，现在先简单来做：
+下面是一个阻塞锁的加锁操作，但如果超过超时时间但是业务还没执行完会导致并发问题，其他进程就会执行业务代码，至于如何改进，下文会讲到，现在先简单来做：
 
 ```java
 public void lock(String key, String request, int timeout) throws InterruptedException {
@@ -130,9 +130,14 @@ public void testLockWait() throws InterruptedException {
 
 但这仅仅测试了加锁操作时候的互斥性，但是没有测试解锁是否会成功以及解锁之后原来等待锁的进程会继续进行，所以你可以参看一下testLockAndUnlock方法是如何测试的。不要觉得写测试很简单，**想清楚测试的各种情况，设计测试情景并实现**并不容易。然而以后写的测试不会单独拿出来讲，毕竟本文想关注的还是分布式锁的实现嘛。
 
+# 待解决问题
+
+* [ ] 超时之后自动释放锁导致的并发问题
+* [ ] 单点故障导致的并发问题
 
 # 参考
+[Redisson源码](https://github.com/redisson/redisson)  
 https://www.jianshu.com/p/c2b4aa7a12f1  
 https://crossoverjie.top/2018/03/29/distributed-lock/distributed-lock-redis/  
-https://www.jianshu.com/p/de67ae50f919
+https://www.jianshu.com/p/de67ae50f919  
 https://www.cnblogs.com/linjiqin/p/8003838.html
