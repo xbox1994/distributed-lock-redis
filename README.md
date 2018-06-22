@@ -111,7 +111,7 @@ public class EmbeddedRedis implements ApplicationRunner {
 
 ```java
 @Test
-public void testLockWait() throws InterruptedException {
+public void shouldWaitWhenOneUsingLockAndTheOtherOneWantToUse() throws InterruptedException {
     Thread t = new Thread(() -> {
         try {
             redisLock.lock(lock1Key, UUID.randomUUID().toString());

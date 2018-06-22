@@ -1,7 +1,5 @@
 package top.tywang.opensource.lock;
 
-import lombok.extern.slf4j.Slf4j;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -13,12 +11,12 @@ import top.tywang.opensource.MainApplication;
 import java.util.UUID;
 
 import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-
-@Slf4j
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest(classes = MainApplication.class)
-public class JedisConnectionTest {
+public class RedisLockTest {
     @Autowired
     private RedisLock redisLock;
 
@@ -32,7 +30,7 @@ public class JedisConnectionTest {
     }
 
     @Test
-    public void testLockWait() throws InterruptedException {
+    public void shouldWaitWhenOneUsingLockAndTheOtherOneWantToUse() throws InterruptedException {
         Thread t = new Thread(() -> {
             try {
                 redisLock.lock(lock1Key, lock1Value);
@@ -49,17 +47,17 @@ public class JedisConnectionTest {
     }
 
     @Test
-    public void testLockAndUnlock() throws InterruptedException {
+    public void shouldResumeCurrentTaskAfterOtherProcessReleaseLock() throws InterruptedException {
         final boolean[] t1Done = {false};
 
         Thread t1 = new Thread(() -> {
             try {
                 redisLock.lock(lock1Key, lock1Value);
-                Assert.assertTrue(redisLock.isLocked(lock1Key));
+                assertTrue(redisLock.isLocked(lock1Key));
                 Thread.sleep(1000);
                 t1Done[0] = true;
                 redisLock.unlock(lock1Key, lock1Value);
-                Assert.assertFalse(redisLock.isLocked(lock1Key));
+                assertFalse(redisLock.isLocked(lock1Key));
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -70,9 +68,9 @@ public class JedisConnectionTest {
 
         Thread t2 = new Thread(() -> {
             try {
-                Assert.assertFalse(t1Done[0]);
+                assertFalse(t1Done[0]);
                 redisLock.lock(lock1Key, lock1Value);
-                Assert.assertTrue(t1Done[0]);
+                assertTrue(t1Done[0]);
                 Thread.sleep(1000);
                 redisLock.unlock(lock1Key, lock1Value);
             } catch (InterruptedException e) {
@@ -83,7 +81,17 @@ public class JedisConnectionTest {
 
         t1.join();
         t2.join();
+    }
 
+    @Test
+    public void shouldReturnTrueWhenReleaseOwnLock() throws InterruptedException {
+        redisLock.lock(lock1Key, lock1Value);
+        assertTrue(redisLock.unlock(lock1Key, lock1Value));
+    }
 
+    @Test
+    public void shouldReturnFalseWhenReleaseOthersLock() throws InterruptedException {
+        redisLock.lock(lock1Key, lock1Value);
+        assertFalse(redisLock.unlock(lock1Key, "other lock's value"));
     }
 }
