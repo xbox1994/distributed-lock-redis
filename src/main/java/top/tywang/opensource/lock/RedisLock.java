@@ -23,13 +23,7 @@ public class RedisLock {
     public void lock(String key, String value) throws InterruptedException {
         Jedis jedis = jedisPool.getResource();
         while (true) {
-            String result = jedis.set(LOCK_PREFIX + key, value, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, DEFAULT_EXPIRE_TIME);
-            if (LOCK_MSG.equals(result)) {
-                jedis.close();
-                return;
-            }
-
-            Thread.sleep(DEFAULT_SLEEP_TIME);
+            if (setLockToRedis(key, value, jedis)) return;
         }
     }
 
@@ -37,14 +31,25 @@ public class RedisLock {
         Jedis jedis = jedisPool.getResource();
 
         while (timeout >= 0) {
-            String result = jedis.set(LOCK_PREFIX + key, value, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, DEFAULT_EXPIRE_TIME);
-            if (LOCK_MSG.equals(result)) {
-                jedis.close();
-                return;
-            }
-            Thread.sleep(DEFAULT_SLEEP_TIME);
+            if (setLockToRedis(key, value, jedis)) return;
             timeout -= DEFAULT_SLEEP_TIME;
         }
+    }
+
+    public boolean tryLock(String key, String value) throws InterruptedException {
+        Jedis jedis = jedisPool.getResource();
+        return setLockToRedis(key, value, jedis);
+    }
+
+    private boolean setLockToRedis(String key, String value, Jedis jedis) throws InterruptedException {
+        String result = jedis.set(LOCK_PREFIX + key, value, SET_IF_NOT_EXIST, SET_WITH_EXPIRE_TIME, DEFAULT_EXPIRE_TIME);
+        if (LOCK_MSG.equals(result)) {
+            jedis.close();
+            return true;
+        }
+
+        Thread.sleep(DEFAULT_SLEEP_TIME);
+        return false;
     }
 
     public boolean unlock(String key, String value) {

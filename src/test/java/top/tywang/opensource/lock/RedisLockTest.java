@@ -30,7 +30,7 @@ public class RedisLockTest {
     }
 
     @Test
-    public void shouldWaitWhenOneUsingLockAndTheOtherOneWantToUse() throws InterruptedException {
+    public void shouldWaitWhenOneUsingBlockedLockAndTheOtherOneWantToUse() throws InterruptedException {
         Thread t = new Thread(() -> {
             try {
                 redisLock.lock(lock1Key, lock1Value);
@@ -44,6 +44,21 @@ public class RedisLockTest {
         long startTime = System.currentTimeMillis();
         redisLock.lock(lock1Key, lock1Value, 1000);
         assertThat(System.currentTimeMillis() - startTime).isBetween(500L, 1500L);
+    }
+
+    @Test
+    public void shouldReturnFalseWhenOneUsingNonBlockedLockAndTheOtherOneWantToUse() throws InterruptedException {
+        Thread t = new Thread(() -> {
+            try {
+                redisLock.tryLock(lock1Key, lock1Value);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
+        t.start();
+        t.join();
+
+        assertFalse(redisLock.tryLock(lock1Key, lock1Value));
     }
 
     @Test
@@ -94,4 +109,5 @@ public class RedisLockTest {
         redisLock.lock(lock1Key, lock1Value);
         assertFalse(redisLock.unlock(lock1Key, "other lock's value"));
     }
+
 }
