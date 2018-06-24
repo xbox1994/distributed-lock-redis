@@ -146,6 +146,7 @@ public void shouldWaitWhenOneUsingLockAndTheOtherOneWantToUse() throws Interrupt
 ## 可以继续优化的地方
 * 实现类似JUC中的Semaphore、CountDownLatch、公平锁非公平锁、读写锁功能，可参考[Redisson的实现](https://github.com/redisson/redisson/wiki/8.-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E5%92%8C%E5%90%8C%E6%AD%A5%E5%99%A8)
 * 提供多主配置方式与加锁解锁实现
+* 使用订阅解锁消息与Semaphore代替`Thread.sleep()`避免时间浪费，可参考Redisson中RedissonLock的lockInterruptibly方法
 
 # 参考
 [Redisson源码](https://github.com/redisson/redisson)  
