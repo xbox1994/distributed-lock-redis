@@ -136,16 +136,15 @@ public void shouldWaitWhenOneUsingLockAndTheOtherOneWantToUse() throws Interrupt
 ### 超时释放导致的并发问题
 问题：如果A拿到锁之后设置了超时时长，但是业务执行的时长超过了超时时长，导致A还在执行业务但是锁已经被释放，此时其他进程就会拿到锁从而执行相同的业务，此时因为并发导致分布式锁失去了意义。
 
-如果可以通过在key快要过期的时候判断下任务有没有执行完毕，如果还没有那就自动延长过期时间，那么确实可以解决并发的问题，但是超时时长也就失去了意义。所以个人认为最好的解决方式是在锁超时的时候通知服务器去停掉超时任务，但是结合上Redis的消息通知机制不免有些过重了
+如果可以通过在key快要过期的时候判断下任务有没有执行完毕，如果还没有那就自动延长过期时间，那么确实可以解决并发的问题，但是超时时长也就失去了意义。所以个人认为最好的解决方式是在锁超时的时候通知服务器去停掉超时任务，但是结合上Redis的发布订阅机制不免有些过重了，而且Redis没有Zookeeper的临时节点，也没有etcd的全局序列号、有序界定啊，所以虽然可以实现，但是并不方便，但etcd、zookeeper则是天然适合的载体。
 
-所以这个问题上，分布式锁的Redis实现并不靠谱。本人在Redisson中也没有找到解决方式。或者使用Zookepper将超时消息发送给客户端去执行超时情况下的业务逻辑。
+比如在etcd的官方[分布式锁](https://github.com/etcd-io/etcd/blob/master/clientv3/concurrency/mutex.go#L26)实现中，通过watch机制实时监听锁的状态，如果锁被释放则立即获取，且获取的时候是按“公平锁”的方式获取的，也就是根据全局的序列号按抢锁的顺序进行排序，先来后到分配给其他抢锁的客户端，避免大量客户端同时抢锁的“惊群效应”
 
 ### 单点故障导致的并发问题
-建立主从复制架构，但是还是会由于主节点挂掉导致某些数据还没同步就已经丢失，所以推荐**多主架构**，有N个独立的master服务器，客户端会向所有的服务器发送获取锁的操作。
+构建集群架构，详情可参考[这里](https://github.com/xbox1994/2018-Java-Interview/blob/master/MD/%E6%95%B0%E6%8D%AE%E5%BA%93-Redis.md)
 
 ## 可以继续优化的地方
 * 实现类似JUC中的Semaphore、CountDownLatch、公平锁非公平锁、读写锁功能，可参考[Redisson的实现](https://github.com/redisson/redisson/wiki/8.-%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E5%92%8C%E5%90%8C%E6%AD%A5%E5%99%A8)
-* 参考RedLock方案，提供多主配置方式与加锁解锁实现
 * 使用订阅解锁消息与Semaphore代替`Thread.sleep()`避免时间浪费，可参考Redisson中RedissonLock的lockInterruptibly方法
 
 
